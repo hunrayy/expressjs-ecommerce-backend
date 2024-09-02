@@ -48,7 +48,24 @@ server.get("/", (request, response) => {
     })
 })
 // ------------------------send email verification code------------------------//
+server.post("/send-email-verification-code", async(request, response) => {
+    const email = request.body.email
+    const sendEmailVerificationCode = await Auth.sendEmailVerificationCode(email)
+    if (sendEmailVerificationCode.code == "success"){
+        request.session.emailVerificationCode = sendEmailVerificationCode.verificationCode
+        request.email = email
 
+        response.send({
+            code: "success",
+            message: "Email verification code sent successfully",
+            genratedToken: sendEmailVerificationCode.genratedToken,
+            email: email,
+            code: sendEmailVerificationCode.verificationCode
+        })
+    }else{
+        response.send(sendEmailVerificationCode)
+    }
+})
 // ------------------------verify email verification code------------------------//
 server.post("/verify-email-verification-code", verifyEmailVerificationToken,  async(request, response) => {
     const verificationCode = request.body.verificationCode
