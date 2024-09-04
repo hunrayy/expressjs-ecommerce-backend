@@ -5,6 +5,8 @@ const nodemailer = require("nodemailer")
 const dotenv = require("dotenv").config()
 const jwt = require("jsonwebtoken")
 const bcryptjs = require("bcryptjs")
+const mongodb = require("mongodb")
+const client = new mongodb.MongoClient(process.env.DB_URL)
 
 
 const transporter = nodemailer.createTransport({
@@ -61,22 +63,26 @@ class Auth {
     }
 
     async sendEmailVerificationCode(email){
+        const generatedCode = verificationCode()
         try {
             const info = await transporter.sendMail({
                 from: `"beautybykiara" <${process.env.APP_NAME}>`, // sender address
                 to: email, // list of receivers
                 subject: "Email Verification Code", // Subject line
-                html: `<h4>Your Email Verification code is ${verificationCode()}</h4>` // html body
+                html: `<h4>Your Email Verification code is ${generatedCode}</h4>` // html body
             });
+            //hash the code generated and send it as response
+            const hashedCode = await this.createToken({code: generatedCode}, "5m")
             if(info){
                 //verification mail sent. next generate a token and send
-                const tokenPayload = {email: email, verificationCode: verificationCode()}
+                const tokenPayload = {email: email, verificationCode: generatedCode}
                 const createToken = await this.createToken(tokenPayload, "5m")
                 return({
                     code: "success",
                     message: "Email verification code sent successfully",
-                    verificationCode: verificationCode(),
-                    genratedToken: createToken
+                    verificationCode: hashedCode,
+                    genratedToken: createToken,
+                    testCode: generatedCode
                 })
             }
             
@@ -92,7 +98,7 @@ class Auth {
 
     async createAccount({firstname, email, password}) {
         // Check if any field is empty or has length less than 1
-        shortPassword = password.length < 6
+        const shortPassword = password.length < 6
         if (!firstname || !email || !password || firstname.length < 1 || email.length < 1 || password.length < 1) {
             return ({
                 code: "error",
