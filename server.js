@@ -4,53 +4,134 @@ const dotenv = require("dotenv").config();
 const session = require("express-session")
 const jwt = require("jsonwebtoken")
 const cors = require("cors")
-const cookieParser = require("cookie-parser")
+const multer = require("multer")
+const redis = require('redis');
+const redisClient = redis.createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redisClient.on('connect', () => {
+    console.log("Connected to Redis");
+});
+
+redisClient.on('error', (err) => {
+    console.error("Redis error: ", err);
+});
+// Graceful shutdown for Redis client
+process.on('SIGINT', () => {
+    redisClient.quit(() => {
+        console.log('Redis client closed');
+        process.exit(0);
+    });
+});
+
+// Connect to Redis server
+redisClient.connect().catch(err => {
+    console.error('Failed to connect to Redis:', err);
+});
+// const path = require("path")
+// const fs = require("fs")
+
+const upload = multer();
 
 const AuthClass = require('./Auth/Auth')
-const Auth = new AuthClass
+const Auth = new AuthClass(redisClient)
 
+const AdminAuthClass = require('./AdminAuth/AdminAuth');
+const AdminAuth = new AdminAuthClass(redisClient)
+const { Verify } = require('crypto');
+
+const ProductClass = require("./Products/Products")
+const Product = new ProductClass(redisClient)
+
+const GetPagesClass = require("./Pages/GetPages")
+const GetPages = new GetPagesClass(redisClient)
+
+const EditPagesClass = require("./Pages/EditPages")
+const EditPages = new EditPagesClass(redisClient)
 // server.use(cors())
 server.use(cors({
     origin: process.env.FRONTEND_URL, // Replace with your frontend's URL
     credentials: true
   }));
 server.use(express.json())
-// server.use(session({
-//     secret: process.env.SESSION_SECRET_KEY, // Replace with a strong secret key
-//     resave: false,
-//     saveUninitialized: true,
-//     cookie: { 
-//         secure: false, // Set to true if using HTTPS
-//         maxAge: 5 * 60 * 1000, // 5 minutes in milliseconds
-//         // path: '/' // Ensures the cookie is available across the entire site
-//         httpOnly: true // Ensure the cookie is not accessible via client-side
-//     }
-// }));
+
 
 
 const PORT = process.env.PORT
 
-const verifyEmailVerificationToken = (request, response, next) => {
+// ---------------------------middlewares-start-------------------------//
+
+// Ensure the 'uploads' directory exists, create it if it doesn't
+// const uploadDir = path.join(__dirname, 'uploads');
+// if (!fs.existsSync(uploadDir)) {
+//     fs.mkdirSync(uploadDir, { recursive: true });
+// }
+
+// Configure Multer for file upload
+// const storage = multer.diskStorage({
+//     destination: (req, file, cb) => {
+//         cb(null, uploadDir); // Store files in the 'uploads' folder
+//     },
+//     filename: (req, file, cb) => {
+//         // Set unique filename for uploaded files
+//         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//         cb(null, `productImage-${uniqueSuffix}${path.extname(file.originalname)}`);
+//     },
+// });
+
+// const upload = multer({ storage: storage });
+
+const verifyToken = (request, response, next) => {
     try{
         const bearer_token = request.headers.authorization
         const token = bearer_token.split(" ")[1]
         // console.log("from middleware: ", token)
         const verify = jwt.verify(token, process.env.JWT_SECRET_KEY)
         request.emailVerificationToken = token
-        console.log(request.session)
+        // console.log(request.session)
 
         next();
     }catch(error){
-            response.send({
-                message: "invalid jsonwebtoken or jwt expired",
-                code: "invalid-jwt",
-                reason: error.message
+        response.send({
+            message: "invalid jsonwebtoken or jwt expired",
+            code: "invalid-jwt",
+            reason: error.message
         })
     }
 }
 
-server.post("/is-token-active", verifyEmailVerificationToken, (request, response) => {
+const verifyAdminToken = (request, response, next) => {
+    try{
+        const bearer_token = request.headers.authorization
+        const token = bearer_token.split(" ")[1]
+        // console.log("from middleware: ", token)
+        const verify = jwt.verify(token, process.env.JWT_SECRET_KEY)
+        if(verify.user == "admin" && verify.is_an_admin){
+            return next()
+        }else{
+            response.send({
+                message: "error 404/ unauthorized",
+                code: "error",
+                reason: error.message
+            })
+        }
+
+    }catch(error){
+        response.send({
+            message: "invalid jsonwebtoken or jwt expired",
+            code: "invalid-jwt",
+            reason: error.message
+        })
+    }
+}
+
+// ---------------------------middleware-end----------------------------//
+
+server.post("/is-token-active", verifyToken, (request, response) => {
     response.send({code: "success", message: "token still active"})
+})
+server.post("/is-admin-token-active", verifyAdminToken, (request, response) => {
+    response.send({code: "success", message: "user is authorized...grant access"})
 })
 server.get("/", (request, response) => {
     response.send({
@@ -77,35 +158,18 @@ server.post("/send-email-verification-code", async(request, response) => {
     }
 })
 // ------------------------verify email verification code------------------------//
-server.post("/verify-email-verification-code", verifyEmailVerificationToken,  async(request, response) => {
+server.post("/verify-email-verification-code", verifyToken,  async(request, response) => {
     const verificationCode = request.body.verificationCode
     const verificationCodeFromCookie = request.headers.verificationcode
     // console.log("verificationCode: ", verificationCode, "emailVerificationToken: ", request.emailVerificationToken)
-    const verifyCookie = jwt.verify(verificationCodeFromCookie, process.env.JWT_SECRET_KEY)
-    console.log("dddhhh", verifyCookie)
+    const email = request.email
     try{
-        if(verifyCookie.code === verificationCode){
-            const payload = {email: request.email}
-            const createAccountToken = await Auth.createToken(payload, "20m")
-            // console.log("from account token: ", createAccountToken)
-            response.send({
-                code: "success",
-                message: "Email successfully verified, Proceed to register",
-                createAccountToken: createAccountToken 
-            }) 
-        }else{
-            response.send({
-                code: "error",
-                message: "invalid verification code"
-            })
-        }
+        const feedback = await Auth.verifyEmailVerificationCode(email, verificationCode, verificationCodeFromCookie)
+        response.send(feedback)
     }catch(error){
-        response.send({
-            code: "error",
-            message: "An error occured while verifying token",
-            reason: error.meassage
-        })
+        response.send({code: "error", message: "An error occured while verifying OTP", reason: error.message})
     }
+    
 })
 
 // ------------------------create account------------------------//
@@ -122,16 +186,51 @@ server.post("/register", async(request, response) => {
 // -----------------------------Login------------------------------//
 server.post("/login", async(request, response) => {
     const {firstname, email, password} = request.body
-    try{
-        const registerFeedback = await Auth.login({email, password})
-        response.send (registerFeedback)
-    }catch(error){
-        response.send({code: "error", message: "An error occured while creating logging in", reason: error.message})
-    }
+    const registerFeedback = await Auth.login({email, password})
+    response.send (registerFeedback)
 })
 
 
 
+
+
+
+
+
+
+
+
+
+// ---------------------------admin routes-------------------------------------//
+
+
+
+
+
+// ---------------------------admin login-------------------------------------//
+
+server.post("/admin/login", async (request, response) => {
+    const {email, password} = request.body
+    const feedback = await AdminAuth.adminLogin(email, password)
+    response.send(feedback);
+})
+
+server.post('/admin/create-product', verifyAdminToken, upload.any(), async (request, response) => {
+    const {productName, productDescription, productPrice} = request.body
+    const saveProduct = await Product.createProduct(productName, productDescription, productPrice, request.files)
+    response.send(saveProduct)
+});
+
+server.get('/admin/get-page', verifyAdminToken, async (request, response) => {
+    const {page} = request.query
+    const feedback = await GetPages.index(page)
+    response.send(feedback)
+    
+})
+
+server.post('/admin/edit-page', verifyAdminToken, async (request, response) => {
+    const feedback = await EditPages.index(request.body)
+})
 
 
 

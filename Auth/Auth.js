@@ -96,6 +96,35 @@ class Auth {
         }
     }
 
+
+    async verifyEmailVerificationCode (email, verificationCode, verificationCodeFromCookie){
+        try{
+            const verifyCookie = jwt.verify(verificationCodeFromCookie, process.env.JWT_SECRET_KEY)
+            if(verifyCookie.code === verificationCode){
+                const payload = {email: email}
+                const createAccountToken = await this.createToken(payload, "20m")
+                // console.log("from account token: ", createAccountToken)
+                return({
+                    code: "success",
+                    message: "Email successfully verified, Proceed to register",
+                    createAccountToken: createAccountToken 
+                }) 
+            }else{
+                return({
+                    code: "error",
+                    message: "invalid verification code"
+                })
+            }
+        }catch(error){
+            return({
+                code: "error",
+                message: "An error occured while verifying token",
+                reason: error.message,
+                test: "sdjkgsh"
+            })
+        }
+    }
+
     async createAccount({firstname, email, password}) {
         // Check if any field is empty or has length less than 1
         const shortPassword = password.length < 6
@@ -150,38 +179,45 @@ class Auth {
     }
 
     async login({email, password}){
-        const checkIfUserExist = await this.checkIfUserExist(email)
-        if(checkIfUserExist == "not-exist"){
-            return ({
-                message: "Invalid email/password, have you registered?",
-                code: "error"
-            })
-        }
-        // get user's details by email
-        const getUserDetails = await this.getUserByEmail(email)
-        if(getUserDetails.code == "success"){
-            const firstname = getUserDetails.code.firstname
-            const hashedPassword = getUserDetails.data.password
-
-            const verifyPassword = await bcryptjs.compare(password, hashedPassword)
-            if(!verifyPassword){
-                return({
-                    message: "Invalid email/password, have you registered?"
+        try{
+            const checkIfUserExist = await this.checkIfUserExist(email)
+            if(checkIfUserExist == "not-exist"){
+                return ({
+                    message: "Invalid email/password, have you registered?",
+                    code: "error"
                 })
             }
-            const payload = {
-                email: email,
-                firstname: firstname
-            }
-            const loginTokin = await this.createToken(payload, null)
-            return({
-                message: "Login success",
-                code: "success",
-                data: {
-                    firstname: firstname,
-                    email: email
+            // get user's details by email
+            const getUserDetails = await this.getUserByEmail(email)
+            console.log(getUserDetails)
+            if(getUserDetails.code == "success"){
+                const firstname = getUserDetails.data.firstname
+                const hashedPassword = getUserDetails.data.password
+
+                const verifyPassword = await bcryptjs.compare(password, hashedPassword)
+                if(!verifyPassword){
+                    return({
+                        message: "Invalid email/password, have you registered?",
+                        code: "error"
+                    })
                 }
-            })
+                const payload = {
+                    email: email,
+                    firstname: firstname
+                }
+                const loginTokin = await this.createToken(payload, "20d")
+                return({
+                    message: "Login success",
+                    code: "success",
+                    data: {
+                        firstname: firstname,
+                        email: email,
+                        token: loginTokin
+                    }
+                })
+            }
+        }catch(error){
+            return({code: "error", message: "An error  while logging you in", reason: error.message})
         }
     }
 
