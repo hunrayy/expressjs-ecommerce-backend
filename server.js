@@ -5,49 +5,26 @@ const session = require("express-session")
 const jwt = require("jsonwebtoken")
 const cors = require("cors")
 const multer = require("multer")
-const redis = require('redis');
-const redisClient = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-redisClient.on('connect', () => {
-    console.log("Connected to Redis");
-});
-
-redisClient.on('error', (err) => {
-    console.error("Redis error: ", err);
-});
-// Graceful shutdown for Redis client
-process.on('SIGINT', () => {
-    redisClient.quit(() => {
-        console.log('Redis client closed');
-        process.exit(0);
-    });
-});
-
-// Connect to Redis server
-redisClient.connect().catch(err => {
-    console.error('Failed to connect to Redis:', err);
-});
 // const path = require("path")
 // const fs = require("fs")
 
 const upload = multer();
 
 const AuthClass = require('./Auth/Auth')
-const Auth = new AuthClass(redisClient)
+const Auth = new AuthClass()
 
 const AdminAuthClass = require('./AdminAuth/AdminAuth');
-const AdminAuth = new AdminAuthClass(redisClient)
+const AdminAuth = new AdminAuthClass()
 const { Verify } = require('crypto');
 
 const ProductClass = require("./Products/Products")
-const Product = new ProductClass(redisClient)
+const Product = new ProductClass()
 
 const GetPagesClass = require("./Pages/GetPages")
-const GetPages = new GetPagesClass(redisClient)
+const GetPages = new GetPagesClass()
 
 const EditPagesClass = require("./Pages/EditPages")
-const EditPages = new EditPagesClass(redisClient)
+const EditPages = new EditPagesClass()
 // server.use(cors())
 server.use(cors({
     origin: process.env.FRONTEND_URL, // Replace with your frontend's URL

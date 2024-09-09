@@ -1,15 +1,11 @@
 const dotenv = require("dotenv").config()
 const mongodb = require("mongodb")
 const client = new mongodb.MongoClient(process.env.DB_URL)
-// const redis = require("redis")
-// const redisClient = redis.createClient()
+const cacheManager = require("../CacheManager/CacheManager")
 
 
 
 class EditPages{
-    constructor(redisClient) {
-        this.redisClient = redisClient;
-    }
     async shippingPolicy(object){
         try{
             if(object.section == "title") {
@@ -26,12 +22,13 @@ class EditPages{
 
             if (updatedPage) {
                 // Update the cache with the new data
-                this.redisClient.set('shippingPolicy', JSON.stringify({
-                    title: updatedPage.title,
-                    firstSection: updatedPage.firstSection,
-                    secondSection: updatedPage.secondSection,
-                    thirdSection: updatedPage.thirdSection
-                }));
+                cacheManager.set('shippingPolicy', {
+                        title: updatedPage.title,
+                        firstSection: updatedPage.firstSection,
+                        secondSection: updatedPage.secondSection,
+                        thirdSection: updatedPage.thirdSection
+                    }
+                );
             }
             return {
                 code: "success",

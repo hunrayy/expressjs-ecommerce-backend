@@ -1,13 +1,8 @@
 const dotenv = require("dotenv").config()
 const mongodb = require("mongodb")
 const client = new mongodb.MongoClient(process.env.DB_URL)
-const redis = require("redis")
-const redisClient = redis.createClient()
-
+const cacheManager = require("../CacheManager/CacheManager")
 class GetPages {
-    constructor(redisClient) {
-        this.redisClient = redisClient;
-    }
 
     async index(page) {
         if (page === "shippingPolicy") {
@@ -18,33 +13,24 @@ class GetPages {
 
     async shippingPolicy(page) {
         try {
-            const cachedData = await new Promise((resolve, reject) => {
-                this.redisClient.get('shippingPolicy', (error, data) => {
-                    if (error) {
-                        return reject(error);
-                    }
-                    resolve(data);
-                });
-            });
-
+            const cachedData = cacheManager.get('shippingPolicy')
             if (cachedData) {
-                const parsedData = JSON.parse(cachedData);
                 return {
                     code: "success",
                     message: "Page successfully retrieved from cache",
-                    data: parsedData
+                    data: cachedData
                 };
             } else {
                 const feedback = await client.db(process.env.DB_NAME).collection("pages").findOne({ page: "shippingPolicy" });
 
                 // Cache the data in Redis
                 if (feedback) {
-                    this.redisClient.set('shippingPolicy', JSON.stringify({
+                    cacheManager.set('shippingPolicy', {
                         title: feedback.title,
                         firstSection: feedback.firstSection,
                         secondSection: feedback.secondSection,
                         thirdSection: feedback.thirdSection
-                    }), 'EX', 3600); // Cache for 1 hour
+                    })
                 }
 
                 return {
