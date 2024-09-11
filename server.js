@@ -27,7 +27,7 @@ const EditPagesClass = require("./Pages/EditPages")
 const EditPages = new EditPagesClass()
 // server.use(cors())
 server.use(cors({
-    origin: process.env.FRONTEND_URL, // Replace with your frontend's URL
+    origin: process.env.FRONTEND_URL,
     credentials: true
   }));
 server.use(express.json())
@@ -208,6 +208,33 @@ server.get('/admin/get-page', verifyAdminToken, async (request, response) => {
 server.post('/admin/edit-page', verifyAdminToken, async (request, response) => {
     const feedback = await EditPages.index(request.body)
 })
+server.get('/admin/get-all-products', verifyAdminToken, async (request, response) => {
+    const feedback = await Product.getAllProducts()
+    response.send(feedback)
+})
+
+server.post('/admin/update-product', verifyAdminToken, upload.any(), async (request, response) => {
+    const { productName, productDescription, productPrice, productImage } = request.body; // Text fields including main image
+    const files = request.files; // Uploaded files (subimages)
+    const {productId} = request.query
+    const feedback = await Product.updateProduct(productId, request.body, request.files)
+    response.send(feedback)
+});
+
+server.get('/admin/search-products', verifyAdminToken, async(request, response) => {
+    const {query} = request.query
+    const feedback = await Product.searchProduct(query)
+    response.send(feedback)
+})
+
+server.post('/admin/delete-product', verifyAdminToken, async (request, response) => {
+    const { _id, images } = request.body.productToDelete;
+    const feedback = await Product.deleteProduct(_id, images)
+    console.log("from server", feedback)
+    response.send(feedback)
+});
+  
+
 
 
 
