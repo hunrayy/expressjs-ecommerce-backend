@@ -193,11 +193,16 @@ server.post("/admin/login", async (request, response) => {
 })
 
 server.post('/admin/create-product', verifyAdminToken, upload.any(), async (request, response) => {
-    const {productName, productDescription, productPrice} = request.body
-    const saveProduct = await Product.createProduct(productName, productDescription, productPrice, request.files)
-    response.send(saveProduct)
+    // console.log(request.files)
+    const feedback = await Product.createProduct(request)
+    response.send(feedback)
+    console.log(feedback)
+
 });
 
+// const {productName, productDescription, productPrice} = request.body
+// const saveProduct = await Product.createProduct(productName, productDescription, productPrice, request.files)
+// response.send(saveProduct)
 server.get('/admin/get-page', verifyAdminToken, async (request, response) => {
     const {page} = request.query
     const feedback = await GetPages.index(page)
