@@ -25,6 +25,9 @@ const GetPages = new GetPagesClass()
 
 const EditPagesClass = require("./Pages/EditPages")
 const EditPages = new EditPagesClass()
+
+const PaymentClass = require("./Payment/Payment")
+const Payment = new PaymentClass()
 // server.use(cors())
 server.use(cors({
     origin: process.env.FRONTEND_URL,
@@ -172,9 +175,27 @@ server.post("/login", async(request, response) => {
 
 
 
+server.post("/paypal/make-payment", verifyToken, async (request, response) => {
+    try {
+        const feedback = await Payment.makePayment(request);
+        response.json(feedback);
+        console.log(feedback)
+    } catch (error) {
+        console.log(feedback)
 
+        response.status(500).send({ error: error.message });
+    }
+});
 
-
+server.post("/paypal/capture-payment", verifyToken, async (request, response) => {
+    const { orderId } = request.body; // Get the order ID from the request body
+    try {
+        const payment = await Payment.capturePayment(orderId);
+        response.json(payment);
+    } catch (error) {
+        response.status(500).send({ error: error.message });
+    }
+});
 
 
 
