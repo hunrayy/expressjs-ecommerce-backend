@@ -197,6 +197,11 @@ server.post("/paypal/capture-payment", verifyToken, async (request, response) =>
     }
 });
 
+server.get('/api/paypal/validate-payment', async (req, res) => {
+    const feedback = await Payment.validatePayment(request)
+    response.send(feedback)
+});
+
 
 
 // ---------------------------admin routes-------------------------------------//
