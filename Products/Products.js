@@ -13,138 +13,91 @@ cloudinary.config({
 
 
 class Product {
+    async uploadToCloudinary(file) {
+        return new Promise((resolve, reject) => {
+            if (!file) {
+                resolve(null);
+            } else {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { folder: "products" }, // Optional folder in Cloudinary
+                    (error, result) => {
+                        if (error) {
+                            reject(error);
+                        } else {
+                            resolve(result.secure_url); // Returning the uploaded file URL
+                        }
+                    }
+                );
+                // Pipe the file buffer into the upload stream
+                streamifier.createReadStream(file.buffer).pipe(uploadStream);
+            }
+        });
+    };
+
     async createProduct(request) {
-        if (!request.body.productName || !request.body.productDescription || !request.body.productPrice) {
+        const { productName, productPrice } = request.body;
+    
+        if (!productName || !productPrice) {
             return {
                 message: "All fields required",
                 code: "error"
             };
         }
-
+    
         try {
-            const { files } = request;
-            
-            // Log the incoming files
-            console.log(request.files);
-
-            // Create an array to store the upload promises
-            const uploadPromises = [];
-
-            // Cloudinary folder configuration
-            const cloudinaryFolder = process.env.FOLDER_FOR_IMAGES_IN_CLOUDINARY;
-
-            const uploadToCloudinary = (fileBuffer, folder) => {
-                return new Promise((resolve, reject) => {
-                    const uploadStream = cloudinary.uploader.upload_stream(
-                        { resource_type: "image", folder },
-                        (error, result) => {
-                            if (error) {
-                                console.error("Cloudinary upload error:", error);
-                                return reject(new Error(error.message));
-                            }
-                            console.log("Cloudinary upload result:", result); // Debug log
-                            resolve(result.secure_url); // Return the Cloudinary URL
-                        }
-                    );
-                    uploadStream.end(fileBuffer); // Upload the image buffer
-                });
+            console.log("Files received in request:", request.files);
+    
+            // Helper function to find file by fieldname
+            const findFileByFieldname = (files, fieldname) => {
+                return files.find(file => file.fieldname === fieldname) || null;
             };
-
-            // Check and upload main product image
-            if (files.productImage) {
-                console.log(files.productImage[0].buffer); // Debug log for buffer
-                const productImageUpload = uploadToCloudinary(files.productImage[0].buffer, cloudinaryFolder);
-                uploadPromises.push(productImageUpload);
-            }
-
-            // Check and upload subImage1
-            if (files.subImage1) {
-                console.log(files.subImage1[0].buffer); // Debug log for buffer
-                const subImage1Upload = uploadToCloudinary(files.subImage1[0].buffer, cloudinaryFolder);
-                uploadPromises.push(subImage1Upload);
-            }
-
-            // Check and upload subImage2
-            if (files.subImage2) {
-                const subImage2Upload = uploadToCloudinary(files.subImage2[0].buffer, cloudinaryFolder);
-                uploadPromises.push(subImage2Upload);
-            }
-
-            // Check and upload subImage3
-            if (files.subImage3) {
-                const subImage3Upload = uploadToCloudinary(files.subImage3[0].buffer, cloudinaryFolder);
-                uploadPromises.push(subImage3Upload);
-            }
-
-            // Wait for all the upload promises to finish
-            const uploadResults = await Promise.all(uploadPromises);
-
-            // Log the upload results
-            console.log("Upload results:", uploadResults);
-
-            // product details
-            const productDetails = {
-                productName: request.body.productName.trim(),
-                productDescription: request.body.productDescription.trim(),
-                productPriceInNaira: request.body.productPrice.trim(),
-                productImageUrl: uploadResults[0] || null,
-                subImage1Url: uploadResults[1] || null,
-                subImage2Url: uploadResults[2] || null,
-                subImage3Url: uploadResults[3] || null,
+    
+            // Find each image from request.files
+            const productImage = findFileByFieldname(request.files, 'productImage');
+            const subImage1 = findFileByFieldname(request.files, 'subImage1');
+            const subImage2 = findFileByFieldname(request.files, 'subImage2');
+            const subImage3 = findFileByFieldname(request.files, 'subImage3');
+    
+            console.log("Product Image:", productImage);
+            console.log("Sub Image 1:", subImage1);
+            console.log("Sub Image 2:", subImage2);
+            console.log("Sub Image 3:", subImage3);
+    
+            // Upload images conditionally
+            const uploadedProductImage = await this.uploadToCloudinary(productImage);
+            const uploadedSubImage1 = await this.uploadToCloudinary(subImage1);
+            const uploadedSubImage2 = await this.uploadToCloudinary(subImage2);
+            const uploadedSubImage3 = await this.uploadToCloudinary(subImage3);
+    
+            const newProduct = {
+                productName: productName,
+                productPriceInNaira: productPrice,
+                productImage: uploadedProductImage,
+                subImage1: uploadedSubImage1,
+                subImage2: uploadedSubImage2,
+                subImage3: uploadedSubImage3
             };
+    
+            console.log("New Product Object:", newProduct);
+    
+            // Save product to the database
+            const savedProduct = await client.db(process.env.DB_NAME).collection("products").insertOne(newProduct)
+            // After product is saved, fetch and save all products from the database to the cache
+            const allProducts = await client.db(process.env.DB_NAME).collection("products").find().toArray();
 
-            // Save productDetails to database
-            const saveProduct = await client.db(process.env.DB_NAME).collection("products").insertOne(productDetails);
-
-            return({ message: 'Product created successfully!', code: "success", data: productDetails });
+            // Cache all products
+            CacheManager.set("products", allProducts);
+            return {
+                message: "Product created successfully",
+                code: "success"
+            };
         } catch (error) {
-            console.error('Error creating product:', error); // Log any errors
-            return({ code: "error", message: 'Error creating product', reason: error.message });
-        }
-        
-        // if(!productName || !productDescription || !productPrice || !arrayOfFiles){
-        //     return {
-        //         message: "All fields required",
-        //         code: "error"
-        //     }
-        // }
-        // try {
-        //     const imageUploadPromises = arrayOfFiles.map(file => {
-        //         return new Promise((resolve, reject) => {
-        //             const uploadStream = cloudinary.uploader.upload_stream({ folder: process.env.FOLDER_FOR_IMAGES_IN_CLOUDINARY }, (error, result) => {
-        //                 if (error) {
-        //                     console.error('Cloudinary upload error:', error);
-        //                     return reject(error);
-        //                 }
-        //                 resolve(result);
-        //             });
-        //             streamifier.createReadStream(file.buffer).pipe(uploadStream);
-        //         });
-        //     });
-    
-        //     const uploadResults = await Promise.all(imageUploadPromises);
-    
-        //     // Log all image URLs
-        //     console.log('Uploaded image URLs:', uploadResults.map(result => result.secure_url));
-            
-        //     const productDetails = {
-        //         productName: productName,
-        //         productDescription: productDescription,
-        //         productPriceInNaira: productPrice,
-        //         images: uploadResults.map(result => result.secure_url),
-        //     };
-        //     // Save productDetails to database
-        //     const saveProduct = await client.db(process.env.DB_NAME).collection("products").insertOne(productDetails)
-        //     // After product is saved, fetch and save all products from the database to the cache
-        //     const allProducts = await client.db(process.env.DB_NAME).collection("products").find().toArray();
-
-        //     // Cache all products
-        //     CacheManager.set("products", allProducts);
-
-        //     return({ message: 'Product created successfully!', code: "success", data: productDetails });
-        // } catch (error) {
-        //     return({ code: "error", message: 'Error creating product' , reason: error.message});
-        // }
+            return {
+                message: "Error creating product",
+                code: "error",
+                reason: error.message
+            };
+        }    
     }
     async getAllProducts() {
         try {
@@ -174,6 +127,56 @@ class Product {
                 message: "An error occurred while retrieving all products",
                 reason: error.message
             };
+        }
+    }
+    async createCacheKey(productName){
+        return `product_${productName.replace(/\s+/g, '_').toLowerCase()}`;
+    };
+    
+
+    async getSingleProduct(productName){
+        // const cacheKey = this.createCacheKey(productName);
+        // Check if the product is in the cache
+        console.log("from single producttt: ", productName)
+
+        let cachedProduct = CacheManager.get(productName);
+
+        if (cachedProduct) {
+            console.log('Product found in cache');
+            return {
+                message: "Product retrieved successfully",
+                code: "success",
+                data: cachedProduct
+            }
+        }
+
+        // If not in cache, fetch from the database
+        console.log('Product not found in cache, fetching from database');
+        try {
+            const product = await client.db(process.env.DB_NAME).collection("products").findOne({ productName: new RegExp(`^${productName}$`, 'i') })
+            if(product){
+                // Store the product in the cache
+                CacheManager.set(productName, product);
+                return {
+                    message: "Product retrieved successfully",
+                    code: "success",
+                    data: product
+                }
+            }else{
+                return {
+                    message: "Product could not be retrieved",
+                    code: "error"
+                }
+            }
+
+        
+        } catch (error) {
+            console.error("Error fetching product:", error);
+            return {
+                message: "Product could not be retrieved",
+                code: "error",
+                reason: error.message
+            }
         }
     }
     

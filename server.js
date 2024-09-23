@@ -119,6 +119,22 @@ server.get("/", (request, response) => {
         code: "success"
     })
 })
+// ----------------------------fetch-all-products----------------------------//
+server.get('/get-all-products', async (request, response) => {
+    const feedback = await Product.getAllProducts()
+    response.send(feedback)
+})
+// ----------------------------fetch-single-product----------------------------//
+server.get('/get-single-product', async (request, response) => {
+    let { productName } = request.query
+    console.log(typeof(productName))
+    productName = String(productName)
+    const feedback = await Product.getSingleProduct(productName)
+    response.send(feedback)
+})
+
+
+
 // ------------------------send email verification code------------------------//
 server.post("/send-email-verification-code", async(request, response) => {
     const email = request.body.email
@@ -238,6 +254,7 @@ server.get('/admin/get-page', verifyAdminToken, async (request, response) => {
 
 server.post('/admin/edit-page', verifyAdminToken, async (request, response) => {
     const feedback = await EditPages.index(request.body)
+    // console.log(request.body)
 })
 server.get('/admin/get-all-products', verifyAdminToken, async (request, response) => {
     const feedback = await Product.getAllProducts()
