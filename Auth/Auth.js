@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken")
 const bcryptjs = require("bcryptjs")
 const mongodb = require("mongodb")
 const client = new mongodb.MongoClient(process.env.DB_URL)
+const ObjectId = mongodb.ObjectId;
 
 
 const transporter = nodemailer.createTransport({
@@ -219,6 +220,23 @@ class Auth {
         }catch(error){
             return({code: "error", message: "An error  while logging you in", reason: error.message})
         }
+    }
+    resolveUserId(mongoObjectId){
+        
+        const user_id = new ObjectId(mongoObjectId).toString();
+
+        if(user_id){
+            
+            return user_id;
+
+        }else{
+
+            return null;
+
+        }
+
+
+
     }
 
 }

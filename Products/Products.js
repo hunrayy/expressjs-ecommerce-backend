@@ -5,6 +5,7 @@ const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
 const CacheManager = require('../CacheManager/CacheManager');
 const ObjectId = mongodb.ObjectId;
+const jwt = require("jsonwebtoken")
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -362,6 +363,46 @@ class Product {
             console.error("Error deleting product and images:", error);
             return{ message: "Failed to delete product", code: "error", reason: error.message }
           }
+    }
+    async savedProductToDbAfterPayment (user_id, products, detailsToken) {
+        try{
+            const verifyToken = jwt.verify(detailsToken, process.env.JWT_SECRET_KEY)
+            const {firstname, lastname, email, address, city, postalCode, phoneNumber, country, state, totalPrice, currency} = verifyToken
+            const today = new Date();
+            const dd = today.getDate()
+            const mm = today.toLocaleString('en-US', { month: 'short' });
+            const yyyy = today.getFullYear();
+            const date = dd + ' ' + mm + ' ' + yyyy;
+            const time = `${today.getHours()}:${today.getMinutes()}`
+            const orderDetails = {
+                user_id: user_id,
+                firstname: firstname,
+                lastname: lastname,
+                email: email,
+                country: country,
+                state: state,
+                address: address,
+                city: city,
+                postalCode: postalCode,
+                phoneNumber: phoneNumber,
+                totalPrice: totalPrice,
+                currency: currency,
+                date: date,
+                time: time,
+                products: products
+            }
+            const saveProducts = await client.db(process.env.DB_NAME).collection("orders").insertOne(orderDetails)
+            return {
+                message: "products ordered successfully saved to db",
+                code: "success"
+            }
+        }catch(error){
+            return{
+                message: "products ordered could not be saved to db",
+                code: "error",
+                reason: error.message
+            }
+        }
     }
 }
 

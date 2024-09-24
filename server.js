@@ -61,14 +61,18 @@ const PORT = process.env.PORT
 
 // const upload = multer({ storage: storage });
 
-const verifyToken = (request, response, next) => {
+const verifyToken = async (request, response, next) => {
     try{
         const bearer_token = request.headers.authorization
         const token = bearer_token.split(" ")[1]
         // console.log("from middleware: ", token)
         const verify = jwt.verify(token, process.env.JWT_SECRET_KEY)
         request.emailVerificationToken = token
-        // console.log(request.session)
+        email = verify.email
+        const getDetailsByEmail = await Auth.getUserByEmail(email)
+        objectId = getDetailsByEmail.data._id
+        const resolveUserId = await Auth.resolveUserId(objectId)
+        request.user_id = resolveUserId
 
         next();
     }catch(error){
@@ -213,10 +217,21 @@ server.post("/paypal/capture-payment", verifyToken, async (request, response) =>
     }
 });
 
-server.get('/api/paypal/validate-payment', async (req, res) => {
+server.get('/api/paypal/validate-payment', verifyToken, async (request, response) => {
     const feedback = await Payment.validatePayment(request)
     response.send(feedback)
 });
+
+server.post('/save-products-to-db-after-payment', verifyToken, async(request, response) => {
+    const user_id = request.user_id
+    const products = request.body.cartProducts
+    const detailsToken = request.body.detailsToken
+    const feedback = await Product.savedProductToDbAfterPayment(user_id, products, detailsToken)
+    response.send(feedback)
+
+    // const user_id = request.user_id
+    // const feedback = await Product.savedProductToDbAfterPayment()
+})
 
 
 
