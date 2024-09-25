@@ -65,7 +65,6 @@ const verifyToken = async (request, response, next) => {
     try{
         const bearer_token = request.headers.authorization
         const token = bearer_token.split(" ")[1]
-        // console.log("from middleware: ", token)
         const verify = jwt.verify(token, process.env.JWT_SECRET_KEY)
         request.emailVerificationToken = token
         email = verify.email
@@ -73,6 +72,7 @@ const verifyToken = async (request, response, next) => {
         objectId = getDetailsByEmail.data._id
         const resolveUserId = await Auth.resolveUserId(objectId)
         request.user_id = resolveUserId
+        // console.log("from middleware: ", request.user_id)
 
         next();
     }catch(error){
@@ -188,6 +188,12 @@ server.post("/login", async(request, response) => {
     const {firstname, email, password} = request.body
     const registerFeedback = await Auth.login({email, password})
     response.send (registerFeedback)
+})
+
+server.get("/get-user-details", verifyToken, async (request, response) => {
+    const user_id = request.user_id
+    const feedback = await Auth.getUserById(user_id)
+    response.send(feedback)
 })
 
 

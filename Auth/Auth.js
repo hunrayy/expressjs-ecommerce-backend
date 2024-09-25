@@ -54,6 +54,31 @@ class Auth {
             }
         }
     }
+    
+    async getUserById(user_id){
+        const get_user_feedback = await client.db(process.env.DB_NAME).collection("users").findOne({_id: new ObjectId(user_id)})
+        if(get_user_feedback){
+            const firstname = get_user_feedback.firstname
+            const email = get_user_feedback.email
+            const get_user_order = await client.db(process.env.DB_NAME).collection("orders").findOne({user_id: user_id})
+            console.log(get_user_order)
+
+            return {
+                message: "User retrieved by their id ",
+                code: "success",
+                data: get_user_order
+            }
+
+        }else{
+
+            return {
+                message: "User's data could not be retrieved",
+                code: 'error',
+                data: null
+
+            }
+        }
+    }
 
     async createToken(payload, expires){
     

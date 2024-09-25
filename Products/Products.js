@@ -389,7 +389,8 @@ class Product {
                 currency: currency,
                 date: date,
                 time: time,
-                products: products
+                products: products,
+                status: "Pending"
             }
             const saveProducts = await client.db(process.env.DB_NAME).collection("orders").insertOne(orderDetails)
             return {
