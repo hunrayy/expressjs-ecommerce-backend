@@ -69,10 +69,10 @@ const verifyToken = async (request, response, next) => {
         request.emailVerificationToken = token
         email = verify.email
         const getDetailsByEmail = await Auth.getUserByEmail(email)
-        objectId = getDetailsByEmail.data._id
+        objectId = getDetailsByEmail.data.id
         const resolveUserId = await Auth.resolveUserId(objectId)
         request.user_id = resolveUserId
-        // console.log("from middleware: ", request.user_id)
+        // console.log("from middleware: ", getDetailsByEmail)
 
         next();
     }catch(error){
@@ -111,8 +111,15 @@ const verifyAdminToken = (request, response, next) => {
 
 // ---------------------------middleware-end----------------------------//
 
-server.post("/is-token-active", verifyToken, (request, response) => {
-    response.send({code: "success", message: "token still active"})
+server.post("/is-token-active", (request, response) => {
+    const bearer_token = request.headers.authorization
+    const token = bearer_token.split(" ")[1]
+    const verify = jwt.verify(token, process.env.JWT_SECRET_KEY)
+    if(verify){
+        response.send({code: "success", message: "token still active"})
+    }else{
+        response.send({message: "invalid jsonwebtoken or jwt expired", code: "invalid-jwt"})
+    }
 })
 server.post("/is-admin-token-active", verifyAdminToken, (request, response) => {
     response.send({code: "success", message: "user is authorized...grant access"})
@@ -158,7 +165,7 @@ server.post("/send-email-verification-code", async(request, response) => {
     }
 })
 // ------------------------verify email verification code------------------------//
-server.post("/verify-email-verification-code", verifyToken,  async(request, response) => {
+server.post("/verify-email-verification-code", async(request, response) => {
     const verificationCode = request.body.verificationCode
     const verificationCodeFromCookie = request.headers.verificationcode
     // console.log("verificationCode: ", verificationCode, "emailVerificationToken: ", request.emailVerificationToken)
@@ -201,29 +208,27 @@ server.get("/get-user-details", verifyToken, async (request, response) => {
 
 
 
-server.post("/paypal/make-payment", verifyToken, async (request, response) => {
+server.post("/flutterwave/make-payment", verifyToken, async (request, response) => {
     try {
         const feedback = await Payment.makePayment(request);
-        response.json(feedback);
-        console.log(feedback)
+        response.send(feedback);
     } catch (error) {
-        console.log(feedback)
 
-        response.status(500).send({ error: error.message });
+        response.send({ error: error.message });
     }
 });
 
-server.post("/paypal/capture-payment", verifyToken, async (request, response) => {
-    const { orderId } = request.body; // Get the order ID from the request body
-    try {
-        const payment = await Payment.capturePayment(orderId);
-        response.json(payment);
-    } catch (error) {
-        response.status(500).send({ error: error.message });
-    }
-});
+// server.post("/paypal/capture-payment", verifyToken, async (request, response) => {
+//     const { orderId } = request.body; // Get the order ID from the request body
+//     try {
+//         const payment = await Payment.capturePayment(orderId);
+//         response.json(payment);
+//     } catch (error) {
+//         response.status(500).send({ error: error.message });
+//     }
+// });
 
-server.get('/api/paypal/validate-payment', verifyToken, async (request, response) => {
+server.get('/flutterwave/validate-payment', verifyToken, async (request, response) => {
     const feedback = await Payment.validatePayment(request)
     response.send(feedback)
 });

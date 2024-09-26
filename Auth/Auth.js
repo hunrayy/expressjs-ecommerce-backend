@@ -108,7 +108,7 @@ class Auth {
                     message: "Email verification code sent successfully",
                     verificationCode: hashedCode,
                     genratedToken: createToken,
-                    testCode: generatedCode
+                    // testCode: generatedCode
                 })
             }
             
