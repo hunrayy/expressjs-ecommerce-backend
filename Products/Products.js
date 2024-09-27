@@ -6,6 +6,16 @@ const streamifier = require('streamifier');
 const CacheManager = require('../CacheManager/CacheManager');
 const ObjectId = mongodb.ObjectId;
 const jwt = require("jsonwebtoken")
+const nodemailer = require("nodemailer")
+const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.APP_NAME,
+      pass: process.env.APP_PASSWORD,
+    }
+});
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -14,6 +24,19 @@ cloudinary.config({
 
 
 class Product {
+    // constructor(){
+    //     this.connectDB()
+    // }
+
+
+async connectDB() {
+    try {
+      await client.connect(); // Ensure the connection is established
+      console.log("Connected successfully to MongoDB");
+    } catch (error) {
+      console.error("Failed to connect to MongoDB:", error.message);
+    }
+  }
     async uploadToCloudinary(file) {
         return new Promise((resolve, reject) => {
             if (!file) {
@@ -36,6 +59,7 @@ class Product {
     };
 
     async createProduct(request) {
+        this.connectDB()
         const { productName, productPrice } = request.body;
     
         if (!productName || !productPrice) {
@@ -373,7 +397,9 @@ class Product {
             const mm = today.toLocaleString('en-US', { month: 'short' });
             const yyyy = today.getFullYear();
             const date = dd + ' ' + mm + ' ' + yyyy;
-            const time = `${today.getHours()}:${today.getMinutes()}`
+            const hours = today.getHours().toString().padStart(2, '0');
+            const minutes = today.getMinutes().toString().padStart(2, '0');
+            const time = `${hours}:${minutes}`;
             const orderDetails = {
                 user_id: user_id,
                 firstname: firstname,
@@ -393,6 +419,38 @@ class Product {
                 status: "Pending"
             }
             const saveProducts = await client.db(process.env.DB_NAME).collection("orders").insertOne(orderDetails)
+            //send a confirmatory mail to the user
+            const info = await transporter.sendMail({
+                from: `"${process.env.NAME_OF_SITE}" <${process.env.APP_NAME}>`, // sender address
+                to: email, // list of receivers
+                subject: "Payment Confirmation", // Subject line
+                html: `<h4>
+                <b>Dear ${firstname}</b>,
+
+                Thank you for your payment! We're pleased to inform you that your transaction has been successfully processed.<br />
+
+                Transaction ID: ${saveProducts.}<br />
+                Amount Paid: ${currency}&nbsp;${parseFloat(totalPrice)}<br />
+
+                Order Summary:
+                ${products.map((each_item, index)=> {
+                    return <div key={index}>
+                        <p>- Item {index}: {each_item.name} - {currency}&nbsp;{parseFloat(each_item.price)}</p>
+                    </div>
+                })}
+
+                Shipping Address: ${address}
+                Estimated Delivery Date: October 10, 2024
+
+                If you have any questions or need assistance, feel free to contact our support team at support@example.com or (123) 456-7890.
+
+                Thank you for choosing us! We look forward to serving you again.
+
+                Best regards,
+                Your Company Name Team
+</h4>` // html body
+            });
+            
             return {
                 message: "products ordered successfully saved to db",
                 code: "success"

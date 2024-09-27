@@ -92,7 +92,7 @@ class Auth {
         const generatedCode = verificationCode()
         try {
             const info = await transporter.sendMail({
-                from: `"beautybykiara" <${process.env.APP_NAME}>`, // sender address
+                from: `"${process.env.NAME_OF_SITE}" <${process.env.APP_NAME}`, // sender address
                 to: email, // list of receivers
                 subject: "Email Verification Code", // Subject line
                 html: `<h4>Your Email Verification code is ${generatedCode}</h4>` // html body

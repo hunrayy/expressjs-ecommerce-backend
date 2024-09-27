@@ -214,7 +214,7 @@ server.post("/flutterwave/make-payment", verifyToken, async (request, response) 
         response.send(feedback);
     } catch (error) {
 
-        response.send({ error: error.message });
+        response.send({ code: "error", reason: error.message });
     }
 });
 
@@ -236,7 +236,7 @@ server.get('/flutterwave/validate-payment', verifyToken, async (request, respons
 server.post('/save-products-to-db-after-payment', verifyToken, async(request, response) => {
     const user_id = request.user_id
     const products = request.body.cartProducts
-    const detailsToken = request.body.detailsToken
+    const detailsToken = request.headers.detailsToken
     const feedback = await Product.savedProductToDbAfterPayment(user_id, products, detailsToken)
     response.send(feedback)
 

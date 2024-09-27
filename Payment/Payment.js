@@ -1,11 +1,19 @@
 const axios = require('axios');
 const dotenv = require("dotenv").config();
+const mongodb = require("mongodb")
+const client = new mongodb.MongoClient(process.env.DB_URL)
+const ObjectId = mongodb.ObjectId;
+const AuthClass = require("../Auth/Auth")
+const Auth = new AuthClass()
+
 
 class Payment {
     // Create Payment
     async makePayment(request) {
         const { email, firstname, lastname, address, city, postalCode, phoneNumber, country, state, totalPrice, currency } = request.body;
         const uniqueId = Date.now()
+        const tokenPayload = { email, firstname, lastname, address, city, postalCode, phoneNumber, country, state, totalPrice, currency }
+        const createTokenWithDetails = await Auth.createToken(tokenPayload, "5m")
         const payload = {
             tx_ref: `ref_${uniqueId}`, // Unique transaction reference
             amount: parseFloat(totalPrice),
@@ -15,7 +23,7 @@ class Payment {
                 phone_number: phoneNumber,
                 name: `${firstname} ${lastname}`
             },
-            redirect_url: `${process.env.FRONTEND_URL}/payment-success?tx_ref=ref_${uniqueId}`, // URL to redirect after approval
+            redirect_url: `${process.env.FRONTEND_URL}/payment-success?details=${createTokenWithDetails}`, // URL to redirect after approval
         };
     
         try {
@@ -39,31 +47,52 @@ class Payment {
     // Validate Payment
     async validatePayment(request) {
         const { tx_ref } = request.query;
-        console.log(tx_ref)
+        console.log("from tx_ref", tx_ref)
 
-        // if (!tx_ref) {
-        //     return { code: 'error', reason: 'Transaction reference is required.' };
-        // }
+        if (!tx_ref) {
+            return { code: 'error', reason: 'Transaction reference is required.' };
+        }
     
-        // try {
-        //     const response = await axios.get(`https://api.flutterwave.com/v3/transaction/verify_by_txref/${tx_ref}`, {
-        //         headers: {
-        //             Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`
-        //         }
-        //     });
-        //     console.log("from flutterwave", response)
+        try {
+            // const response = await axios.get(`https://api.flutterwave.com/v3/transactions/verify_by_txref/${tx_ref}`, {
+            const response = await axios.get(`https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${tx_ref}`, {
+                headers: {
+                    Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`
+                }
+            });
+            console.log("from flutterwave", response)
     
-        //     // if (response.data.status === 'success') {
-        //     //     return res.json({ success: true, message: 'Payment verified' });
-        //     // } else if (response.data.status === 'already_made') {
-        //     //     return res.status(400).json({ code: 'already-made', message: 'Payment has already been made.' });
-        //     // }
+            if (response.data.status === 'success') {
+                return this.processPayment(response.data.flw_ref, response.data.tx_ref, response.data.amount, 'successful', response.data.created_at, response.data.payment_type);
+                // return { code: "success", message: response.data.message, data: response.data.data };
+            }else{
+                return { code: "error", message: 'Payment verification failed' };
+            }
     
-        //     // return { success: false, message: 'Payment verification failed' };
-        // } catch (error) {
-        //     return { success: false, message: 'Error validating payment' };
-        // }
+        }  catch (error) {
+            // Log detailed error information for better debugging
+            if (error.response) {
+                console.error("Error response from Flutterwave:", error.response.data);
+                return { code: "error", message: error.response.data.message || 'Error validating payment' };
+            } else {
+                console.error("Error message:", error.message);
+                return { code: "error", message: error.message };
+            }
+        }
     }
+    async processPayment (flw_ref, tx_ref, amount, status, created_at, payment_type){
+        try{
+                const existingTransaction = await client.db(process.env.DB_NAME).collection("transactions").findOne({ $or: [{ flw_ref }, { tx_ref }] });
+            if (existingTransaction) {
+                    return { code: "already-made", message:  "Transaction already processed"};
+            } else {
+                const feedback = client.db(process.env.DB_NAME).collection("transactions").insertOne({ flw_ref, tx_ref, amount, status, created_at , payment_type});
+                return { code: "success", message:  "Transaction processed successfully"}
+            }
+        }catch(error){
+            return { code: "error", message:  "An error occured while processing transaction", reason: error.message};
+        }
+    };
 }
 // if (response.data.status === 'success') {
 //     return { success: true, message: "Payment captured successfully." };
