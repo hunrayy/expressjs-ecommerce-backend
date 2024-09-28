@@ -9,39 +9,39 @@ const Auth = new AuthClass()
 
 class Payment {
     // Create Payment
-    // async makePayment(request) {
-    //     const { email, firstname, lastname, address, city, postalCode, phoneNumber, country, state, totalPrice, currency } = request.body;
-    //     const uniqueId = Date.now()
-    //     const tokenPayload = { email, firstname, lastname, address, city, postalCode, phoneNumber, country, state, totalPrice, currency }
-    //     const createTokenWithDetails = await Auth.createToken(tokenPayload, "5m")
-    //     const payload = {
-    //         tx_ref: `ref_${uniqueId}`, // Unique transaction reference
-    //         amount: parseFloat(totalPrice),
-    //         currency: currency,  // Ensure this currency is supported by Flutterwave
-    //         customer: {
-    //             email: email,
-    //             phone_number: phoneNumber,
-    //             name: `${firstname} ${lastname}`
-    //         },
-    //         redirect_url: `${process.env.FRONTEND_URL}/payment-success?details=${createTokenWithDetails}`, // URL to redirect after approval
-    //     };
+    async makePayment(request) {
+        const { email, firstname, lastname, address, city, postalCode, phoneNumber, country, state, totalPrice, currency } = request.body;
+        const uniqueId = Date.now()
+        const tokenPayload = { email, firstname, lastname, address, city, postalCode, phoneNumber, country, state, totalPrice, currency }
+        const createTokenWithDetails = await Auth.createToken(tokenPayload, "5m")
+        const payload = {
+            tx_ref: `ref_${uniqueId}`, // Unique transaction reference
+            amount: parseFloat(totalPrice),
+            currency: currency,  // Ensure this currency is supported by Flutterwave
+            customer: {
+                email: email,
+                phone_number: phoneNumber,
+                name: `${firstname} ${lastname}`
+            },
+            redirect_url: `${process.env.FRONTEND_URL}/payment-success?details=${createTokenWithDetails}`, // URL to redirect after approval
+        };
     
-    //     try {
-    //         const response = await axios.post('https://api.flutterwave.com/v3/payments', payload, {
-    //             headers: {
-    //                 Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
-    //                 'Content-Type': 'application/json'
-    //             }
-    //         });
-    //         return response.data; // Return the response from Flutterwave
-    //     } catch (error) {
-    //         return {
-    //             message: 'Error creating payment',
-    //             code: "error",
-    //             reason: error.response ? error.response.data.message : error.message
-    //         };
-    //     }
-    // }
+        try {
+            const response = await axios.post('https://api.flutterwave.com/v3/payments', payload, {
+                headers: {
+                    Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            return response.data; // Return the response from Flutterwave
+        } catch (error) {
+            return {
+                message: 'Error creating payment',
+                code: "error",
+                reason: error.response ? error.response.data.message : error.message
+            };
+        }
+    }
     
 
     // Validate Payment
