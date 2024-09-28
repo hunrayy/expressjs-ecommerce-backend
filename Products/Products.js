@@ -429,15 +429,14 @@ async connectDB() {
 
                 Thank you for your payment! We're pleased to inform you that your transaction has been successfully processed.<br />
 
-                Transaction ID: ${saveProducts.}<br />
+                Transaction ID: ${saveProducts._id}<br />
                 Amount Paid: ${currency}&nbsp;${parseFloat(totalPrice)}<br />
 
                 Order Summary:
-                ${products.map((each_item, index)=> {
-                    return <div key={index}>
-                        <p>- Item {index}: {each_item.name} - {currency}&nbsp;{parseFloat(each_item.price)}</p>
-                    </div>
-                })}
+               
+                ${products.map((each_item, index) => {
+                    return `- Item ${index + 1}: ${each_item.name} - ${currency} ${parseFloat(each_item.price)}`;
+                  })}
 
                 Shipping Address: ${address}
                 Estimated Delivery Date: October 10, 2024
