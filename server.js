@@ -26,7 +26,7 @@ const GetPages = new GetPagesClass()
 const EditPagesClass = require("./Pages/EditPages")
 const EditPages = new EditPagesClass()
 
-const PaymentClass = require("./Payment/Payment")
+const PaymentClass = require("./Payment/Payment");
 const Payment = new PaymentClass()
 // server.use(cors())
 server.use(cors({
@@ -111,6 +111,11 @@ const verifyAdminToken = (request, response, next) => {
 
 // ---------------------------middleware-end----------------------------//
 
+// pusher test route
+server.post("/pusher-test-route", async(request, response) => {
+    const feedback = await Auth.testPusher()
+    response.send(feedback)
+})
 server.post("/is-token-active", (request, response) => {
     const bearer_token = request.headers.authorization
     const token = bearer_token.split(" ")[1]
@@ -307,6 +312,10 @@ server.post('/admin/delete-product', verifyAdminToken, async (request, response)
     console.log("from server", feedback)
     response.send(feedback)
 });
+server.get('/admin/get-admin-unread-notifications', verifyAdminToken, async(request, response) => {
+    const feedback = await AdminAuth.getAdminUnreadNotifications()
+    response.send(feedback)
+})
   
 
 

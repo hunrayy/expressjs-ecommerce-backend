@@ -8,6 +8,10 @@ const bcryptjs = require("bcryptjs")
 const mongodb = require("mongodb")
 const client = new mongodb.MongoClient(process.env.DB_URL)
 const ObjectId = mongodb.ObjectId;
+const Pusher = require("pusher")
+const pusher = new Pusher({appId: process.env.PUSHER_APP_ID, key: process.env.PUSHER_KEY, secret: process.env.PUSHER_SECRET, cluster: process.env.PUSHER_CLUSTER, useTLS: true})
+const cacheManager = require("../CacheManager/CacheManager")
+
 
 
 const transporter = nodemailer.createTransport({
@@ -251,17 +255,36 @@ class Auth {
         const user_id = new ObjectId(mongoObjectId).toString();
 
         if(user_id){
-            
             return user_id;
-
         }else{
-
             return null;
-
         }
+    }
 
+    async testPusher(){
+        try{
+            const info = "A new user, Vincent, just created an account"
+            pusher.trigger('user-accounts', 'new-user', {
+                message: info,
+            });
+            // Retrieve existing notifications from cache (if any)
+            const existingNotifications = cacheManager.get("adminUnreadNotifications") || [];
 
+            // Push the new notification to the existing array
+            const updatedNotifications = [...existingNotifications, info];
 
+            // Save the updated notifications array to cache
+            cacheManager.set("adminUnreadNotifications", updatedNotifications);
+
+            const saveNotificationToDB = await client.db(process.env.DB_NAME).collection('adminNotifications').insertOne({notification: {message: info, hasBeenRead: false}})
+            return {message: "pusher notification successfully sent"}
+        }catch(error){
+            return {
+                message: "An error occurred",
+                code: "error",
+                reason: error.message
+            }
+        }
     }
 
 }

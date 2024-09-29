@@ -73,11 +73,11 @@ class GetPages {
                         firstSection: feedback.firstSection,
                         secondSection: feedback.secondSection,
                         thirdSection: feedback.thirdSection,
-                        thirdSection: feedback.fourthSection,
-                        thirdSection: feedback.fifthSection,
-                        thirdSection: feedback.sixthSection,
-                        thirdSection: feedback.seventhSection,
-                        thirdSection: feedback.eighthSection,
+                        fourthSection: feedback.fourthSection,
+                        fifthSection: feedback.fifthSection,
+                        sixthSection: feedback.sixthSection,
+                        seventhSection: feedback.seventhSection,
+                        eighthSection: feedback.eighthSection,
 
                     })
                 }
@@ -90,11 +90,11 @@ class GetPages {
                         firstSection: feedback.firstSection,
                         secondSection: feedback.secondSection,
                         thirdSection: feedback.thirdSection,
-                        thirdSection: feedback.fourthSection,
-                        thirdSection: feedback.fifthSection,
-                        thirdSection: feedback.sixthSection,
-                        thirdSection: feedback.seventhSection,
-                        thirdSection: feedback.eighthSection,
+                        fourthSection: feedback.fourthSection,
+                        fifthSection: feedback.fifthSection,
+                        sixthSection: feedback.sixthSection,
+                        seventhSection: feedback.seventhSection,
+                        eighthSection: feedback.eighthSection,
                     }
                 };
             }

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken")
 const bcryptjs = require("bcryptjs")
 const mongodb = require("mongodb")
 const client = new mongodb.MongoClient(process.env.DB_URL)
+const cacheManager = require("../CacheManager/CacheManager")
 
 
 class AdminAuth {
@@ -94,6 +95,28 @@ class AdminAuth {
             }
         }catch(error){
             return({code: "error", message: "An error  while creating logging in", reason: error.message})
+        }
+    }
+    async getAdminUnreadNotifications(){
+        try{
+            //check the cache for unread notifications
+            const notificationsInCache = cacheManager.get('adminUnreadNotifications')
+            if(notificationsInCache){
+                return {message: "Unread notifications successfully retrieved from cache", code: "success", data: notificationsInCache}
+
+            }else{
+                //no unread notifications in cache hence check the database
+                const feedback = await client.db(process.env.DB_NAME).collection("adminNotifications").find({ "notification.hasBeenRead": false }).toArray()
+                //save fetched result to cache
+                cacheManager.set("adminUnreadNotifications", feedback)
+                return {message: "Unread notifications fetched successfully", code: "success", data: feedback}
+            }
+        }catch(error){
+            return {
+                message: "An error occured while fetching unread notifications",
+                code: "error",
+                reason: error.message
+            }
         }
     }
 
