@@ -165,16 +165,16 @@ class Auth {
             });
         }
         // Email regex pattern
-        const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        // const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
         // Validate email format
-        if (!emailPattern.test(email)) {
-            return ({
-                code: "error",
-                message: "Invalid email format"
-            });
-        }
-      try{
+        // if (!emailPattern.test(email)) {
+        //     return ({
+        //         code: "error",
+        //         message: "Invalid email format"
+        //     });
+        // }
+        try{
             const checkIfUserExist = this.checkIfUserExist(email)
             if(checkIfUserExist == "exists"){
                 return({
@@ -189,6 +189,27 @@ class Auth {
                     password: hashedPassword
                 }
                 const createAccount = await client.db(process.env.DB_NAME).collection("users").insertOne(userDetails)
+                //send a "newUser" notification to the admin
+                const today = new Date();
+                const dd = today.getDate()
+                const mm = today.toLocaleString('en-US', { month: 'short' });
+                const yyyy = today.getFullYear();
+                const date = dd + ' ' + mm + ' ' + yyyy;
+                const hours = today.getHours().toString().padStart(2, '0');
+                const minutes = today.getMinutes().toString().padStart(2, '0');
+                const time = `${hours}:${minutes}`;
+                const info = `A new user, ${firstname}, just created an account`
+                pusher.trigger('user-accounts', 'new-user', {
+                    message: info,
+                });
+                const saveNotificationToDB = await client.db(process.env.DB_NAME).collection('adminNotifications').insertOne({notification: {message: info, title: "newUser", hasBeenRead: false, time: time, date: date}})
+                
+                const unReadNotifications = await client.db(process.env.DB_NAME).collection("adminNotifications").find({"notification.hasBeenRead": false}).toArray();
+                
+                // Save the updated notifications array to cache
+                cacheManager.set("adminUnreadNotifications", unReadNotifications);
+                // console.log("from first cache manager", cacheManager.get("adminUnreadNotifications"))
+
                 return({
                     message: "Account successfully created",
                     code: "success",
@@ -262,21 +283,26 @@ class Auth {
     }
 
     async testPusher(){
+        const today = new Date();
+        const dd = today.getDate()
+        const mm = today.toLocaleString('en-US', { month: 'short' });
+        const yyyy = today.getFullYear();
+        const date = dd + ' ' + mm + ' ' + yyyy;
+        const hours = today.getHours().toString().padStart(2, '0');
+        const minutes = today.getMinutes().toString().padStart(2, '0');
+        const time = `${hours}:${minutes}`;
         try{
             const info = "A new user, Vincent, just created an account"
             pusher.trigger('user-accounts', 'new-user', {
                 message: info,
             });
-            // Retrieve existing notifications from cache (if any)
-            const existingNotifications = cacheManager.get("adminUnreadNotifications") || [];
-
-            // Push the new notification to the existing array
-            const updatedNotifications = [...existingNotifications, info];
-
+            const saveNotificationToDB = await client.db(process.env.DB_NAME).collection('adminNotifications').insertOne({notification: {message: info, title: "newUser", hasBeenRead: false, time: time, date: date}})
+            
+            const unReadNotifications = await client.db(process.env.DB_NAME).collection("adminNotifications").find({"notification.hasBeenRead": false}).toArray();
+            
             // Save the updated notifications array to cache
-            cacheManager.set("adminUnreadNotifications", updatedNotifications);
-
-            const saveNotificationToDB = await client.db(process.env.DB_NAME).collection('adminNotifications').insertOne({notification: {message: info, hasBeenRead: false}})
+            cacheManager.set("adminUnreadNotifications", unReadNotifications);
+            console.log("from first cache manager", cacheManager.get("adminUnreadNotifications"))
             return {message: "pusher notification successfully sent"}
         }catch(error){
             return {

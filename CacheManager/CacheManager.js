@@ -13,6 +13,10 @@ class CacheManager {
     get(key) {
         return this.cache.get(key);
     }
+
+    del(key) {
+        return this.cache.del(key);  
+    }
 }
 
 module.exports = new CacheManager();

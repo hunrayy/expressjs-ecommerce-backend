@@ -316,6 +316,10 @@ server.get('/admin/get-admin-unread-notifications', verifyAdminToken, async(requ
     const feedback = await AdminAuth.getAdminUnreadNotifications()
     response.send(feedback)
 })
+server.get('/get-all-admin-notifications', verifyAdminToken, async (request, response) => {
+    const feedback = await AdminAuth.getAllAdminNotifications()
+    response.send(feedback)
+})
   
 
 
